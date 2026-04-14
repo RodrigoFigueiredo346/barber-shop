@@ -1,0 +1,59 @@
+package repository
+
+import (
+	"context"
+
+	"barber-app/internal/models"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type ScheduleRepo struct {
+	pool *pgxpool.Pool
+}
+
+func NewScheduleRepo(pool *pgxpool.Pool) *ScheduleRepo {
+	return &ScheduleRepo{pool: pool}
+}
+
+func (r *ScheduleRepo) Upsert(ctx context.Context, s models.Schedule) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO schedules (day_of_week, start_time, end_time, active)
+		 VALUES ($1, $2, $3, $4)
+		 ON CONFLICT (day_of_week) DO UPDATE SET start_time = $2, end_time = $3, active = $4`,
+		s.DayOfWeek, s.StartTime, s.EndTime, s.Active,
+	)
+	return err
+}
+
+func (r *ScheduleRepo) GetAll(ctx context.Context) ([]models.Schedule, error) {
+	rows, err := r.pool.Query(ctx,
+		"SELECT id, day_of_week, start_time::text, end_time::text, active FROM schedules ORDER BY day_of_week",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var schedules []models.Schedule
+	for rows.Next() {
+		var s models.Schedule
+		if err := rows.Scan(&s.ID, &s.DayOfWeek, &s.StartTime, &s.EndTime, &s.Active); err != nil {
+			return nil, err
+		}
+		schedules = append(schedules, s)
+	}
+	return schedules, nil
+}
+
+func (r *ScheduleRepo) GetByDay(ctx context.Context, dayOfWeek int) (*models.Schedule, error) {
+	var s models.Schedule
+	err := r.pool.QueryRow(ctx,
+		"SELECT id, day_of_week, start_time::text, end_time::text, active FROM schedules WHERE day_of_week = $1",
+		dayOfWeek,
+	).Scan(&s.ID, &s.DayOfWeek, &s.StartTime, &s.EndTime, &s.Active)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
