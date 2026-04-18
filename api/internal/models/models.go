@@ -10,15 +10,16 @@ type Client struct {
 }
 
 type Appointment struct {
-	ID          int       `json:"id"`
-	ClientID    int       `json:"client_id"`
-	ClientName  string    `json:"client_name,omitempty"`
-	ServiceID   *int      `json:"service_id,omitempty"`
-	ServiceName string    `json:"service_name,omitempty"`
-	Date        string    `json:"date"`
-	Time        string    `json:"time"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           int       `json:"id"`
+	ClientID     int       `json:"client_id"`
+	ClientName   string    `json:"client_name,omitempty"`
+	ServiceID    *int      `json:"service_id,omitempty"`
+	ServiceName  string    `json:"service_name,omitempty"`
+	ServiceNames []string  `json:"service_names,omitempty"`
+	Date         string    `json:"date"`
+	Time         string    `json:"time"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Schedule struct {
@@ -27,6 +28,7 @@ type Schedule struct {
 	StartTime string `json:"start_time"`
 	EndTime   string `json:"end_time"`
 	Active    bool   `json:"active"`
+	Slot      int    `json:"slot"` // 1 a 4 (faixas de horário)
 }
 
 type BlockedSlot struct {

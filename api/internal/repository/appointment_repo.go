@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"barber-app/internal/models"
@@ -17,18 +18,59 @@ func NewAppointmentRepo(pool *pgxpool.Pool) *AppointmentRepo {
 	return &AppointmentRepo{pool: pool}
 }
 
-func (r *AppointmentRepo) Create(ctx context.Context, clientID int, serviceID *int, date, timeSlot string) (*models.Appointment, error) {
-	var a models.Appointment
-	err := r.pool.QueryRow(ctx,
-		`INSERT INTO appointments (client_id, service_id, date, time, status)
-		 VALUES ($1, $2, $3, $4, 'scheduled')
-		 RETURNING id, client_id, service_id, date::text, time::text, status, created_at`,
-		clientID, serviceID, date, timeSlot,
-	).Scan(&a.ID, &a.ClientID, &a.ServiceID, &a.Date, &a.Time, &a.Status, &a.CreatedAt)
+func (r *AppointmentRepo) Create(ctx context.Context, clientID int, serviceIDs []int, date, timeSlot string) (*models.Appointment, error) {
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &a, nil
+	defer tx.Rollback(ctx)
+
+	var a models.Appointment
+	err = tx.QueryRow(ctx,
+		`INSERT INTO appointments (client_id, date, time, status)
+		 VALUES ($1, $2, $3, 'scheduled')
+		 RETURNING id, client_id, date::text, time::text, status, created_at`,
+		clientID, date, timeSlot,
+	).Scan(&a.ID, &a.ClientID, &a.Date, &a.Time, &a.Status, &a.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sid := range serviceIDs {
+		_, err = tx.Exec(ctx,
+			"INSERT INTO appointment_services (appointment_id, service_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+			a.ID, sid,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &a, tx.Commit(ctx)
+}
+
+// attachServiceNames busca os nomes dos serviços de cada agendamento.
+func (r *AppointmentRepo) attachServiceNames(ctx context.Context, appointments []models.Appointment) error {
+	for i, a := range appointments {
+		rows, err := r.pool.Query(ctx,
+			"SELECT s.name FROM appointment_services aps JOIN services s ON aps.service_id = s.id WHERE aps.appointment_id = $1 ORDER BY s.name",
+			a.ID,
+		)
+		if err != nil {
+			continue
+		}
+		var names []string
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err == nil {
+				names = append(names, name)
+			}
+		}
+		rows.Close()
+		appointments[i].ServiceNames = names
+		appointments[i].ServiceName = strings.Join(names, ", ")
+	}
+	return nil
 }
 
 func (r *AppointmentRepo) CountActiveByClient(ctx context.Context, clientID int) (int, error) {
@@ -42,11 +84,9 @@ func (r *AppointmentRepo) CountActiveByClient(ctx context.Context, clientID int)
 
 func (r *AppointmentRepo) GetByClient(ctx context.Context, clientID int) ([]models.Appointment, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT a.id, a.client_id, COALESCE(s.name, ''), a.date::text, a.time::text, a.status, a.created_at
-		 FROM appointments a
-		 LEFT JOIN services s ON a.service_id = s.id
-		 WHERE a.client_id = $1 AND a.status = 'scheduled'
-		 ORDER BY a.date, a.time`, clientID,
+		`SELECT id, client_id, date::text, time::text, status, created_at
+		 FROM appointments WHERE client_id = $1 AND status = 'scheduled'
+		 ORDER BY date, time`, clientID,
 	)
 	if err != nil {
 		return nil, err
@@ -56,11 +96,12 @@ func (r *AppointmentRepo) GetByClient(ctx context.Context, clientID int) ([]mode
 	var appointments []models.Appointment
 	for rows.Next() {
 		var a models.Appointment
-		if err := rows.Scan(&a.ID, &a.ClientID, &a.ServiceName, &a.Date, &a.Time, &a.Status, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.ClientID, &a.Date, &a.Time, &a.Status, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		appointments = append(appointments, a)
 	}
+	r.attachServiceNames(ctx, appointments)
 	return appointments, nil
 }
 
@@ -86,10 +127,8 @@ func (r *AppointmentRepo) GetByID(ctx context.Context, id int) (*models.Appointm
 
 func (r *AppointmentRepo) GetByDate(ctx context.Context, date string) ([]models.Appointment, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT a.id, a.client_id, c.name, COALESCE(s.name, ''), a.date::text, a.time::text, a.status, a.created_at
-		 FROM appointments a
-		 JOIN clients c ON a.client_id = c.id
-		 LEFT JOIN services s ON a.service_id = s.id
+		`SELECT a.id, a.client_id, c.name, a.date::text, a.time::text, a.status, a.created_at
+		 FROM appointments a JOIN clients c ON a.client_id = c.id
 		 WHERE a.date = $1 AND a.status = 'scheduled'
 		 ORDER BY a.time`, date,
 	)
@@ -101,15 +140,15 @@ func (r *AppointmentRepo) GetByDate(ctx context.Context, date string) ([]models.
 	var appointments []models.Appointment
 	for rows.Next() {
 		var a models.Appointment
-		if err := rows.Scan(&a.ID, &a.ClientID, &a.ClientName, &a.ServiceName, &a.Date, &a.Time, &a.Status, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.ClientID, &a.ClientName, &a.Date, &a.Time, &a.Status, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		appointments = append(appointments, a)
 	}
+	r.attachServiceNames(ctx, appointments)
 	return appointments, nil
 }
 
-// GetBookedSlotsByDate retorna os horários agendados (só time) de uma data.
 func (r *AppointmentRepo) GetBookedSlotsByDate(ctx context.Context, date string) ([]string, error) {
 	rows, err := r.pool.Query(ctx,
 		"SELECT time::text FROM appointments WHERE date = $1 AND status = 'scheduled'", date,

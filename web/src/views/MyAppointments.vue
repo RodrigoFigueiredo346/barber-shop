@@ -26,6 +26,16 @@
 
     <div class="spacer"></div>
     <button class="btn btn-secondary" @click="$router.push('/home')">Voltar</button>
+
+    <Teleport to="body">
+      <div v-if="dialogMsg" class="dialog-overlay" @click="dialogMsg = ''">
+        <div class="dialog-box" @click.stop>
+          <div style="font-size:2rem;margin-bottom:0.5rem">{{ dialogIcon }}</div>
+          <p style="font-weight:600">{{ dialogMsg }}</p>
+          <button class="btn btn-primary" @click="dialogMsg = ''" style="margin-top:1rem">OK</button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -37,6 +47,8 @@ import { api } from '../api'
 const auth = useAuthStore()
 const appointments = ref([])
 const loading = ref(true)
+const dialogMsg = ref('')
+const dialogIcon = ref('✅')
 
 onMounted(loadAppointments)
 
@@ -45,11 +57,8 @@ async function loadAppointments() {
   try {
     const data = await api.getMyAppointments(auth.client.id)
     appointments.value = data || []
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
+  } catch (e) { console.error(e) }
+  finally { loading.value = false }
 }
 
 async function handleCancel(id) {
@@ -57,8 +66,11 @@ async function handleCancel(id) {
   try {
     await api.cancelAppointment(id, auth.client.id)
     await loadAppointments()
+    dialogIcon.value = '✅'
+    dialogMsg.value = 'Agendamento cancelado'
   } catch (e) {
-    alert(e.message)
+    dialogIcon.value = '⚠️'
+    dialogMsg.value = e.message
   }
 }
 
@@ -68,3 +80,8 @@ function formatDate(d) {
   return `${day}/${m}/${y}`
 }
 </script>
+
+<style scoped>
+.dialog-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:999 }
+.dialog-box { background:#16213e;border-radius:16px;padding:2rem;text-align:center;max-width:320px;width:90% }
+</style>

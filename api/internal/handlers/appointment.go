@@ -39,14 +39,21 @@ func (h *AppointmentHandler) GetAvailableSlots(w http.ResponseWriter, r *http.Re
 // Create agenda um horário.
 func (h *AppointmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ClientID  int    `json:"client_id"`
-		ServiceID *int   `json:"service_id"`
-		Date      string `json:"date"`
-		Time      string `json:"time"`
+		ClientID   int    `json:"client_id"`
+		ServiceID  *int   `json:"service_id"`
+		ServiceIDs []int  `json:"service_ids"`
+		Date       string `json:"date"`
+		Time       string `json:"time"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		jsonError(w, http.StatusBadRequest, "JSON inválido")
 		return
+	}
+
+	// Compatibilidade: se mandou service_id único, converte pra lista
+	svcIDs := req.ServiceIDs
+	if len(svcIDs) == 0 && req.ServiceID != nil {
+		svcIDs = []int{*req.ServiceID}
 	}
 
 	// Verifica limite de 3 agendamentos ativos
@@ -67,7 +74,7 @@ func (h *AppointmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appointment, err := h.repo.Create(r.Context(), req.ClientID, req.ServiceID, req.Date, req.Time+":00")
+	appointment, err := h.repo.Create(r.Context(), req.ClientID, svcIDs, req.Date, req.Time+":00")
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "Erro ao agendar")
 		return

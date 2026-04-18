@@ -69,6 +69,25 @@ func Migrate(pool *pgxpool.Pool) error {
 	);
 
 	ALTER TABLE appointments ADD COLUMN IF NOT EXISTS service_id INTEGER REFERENCES services(id);
+
+	-- Tabela de relacionamento N:N entre agendamentos e serviços
+	CREATE TABLE IF NOT EXISTS appointment_services (
+		id SERIAL PRIMARY KEY,
+		appointment_id INTEGER REFERENCES appointments(id) ON DELETE CASCADE,
+		service_id INTEGER REFERENCES services(id),
+		UNIQUE(appointment_id, service_id)
+	);
+
+	-- Suporte a múltiplas faixas de horário por dia
+	ALTER TABLE schedules ADD COLUMN IF NOT EXISTS slot INTEGER NOT NULL DEFAULT 1;
+	DO $$ BEGIN
+		ALTER TABLE schedules DROP CONSTRAINT IF EXISTS schedules_day_of_week_key;
+	EXCEPTION WHEN OTHERS THEN NULL;
+	END $$;
+	DO $$ BEGIN
+		ALTER TABLE schedules ADD CONSTRAINT schedules_day_slot_unique UNIQUE (day_of_week, slot);
+	EXCEPTION WHEN duplicate_table THEN NULL;
+	END $$;
 	`
 	_, err := pool.Exec(context.Background(), query)
 	return err

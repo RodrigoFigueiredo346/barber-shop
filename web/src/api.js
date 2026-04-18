@@ -24,8 +24,8 @@ export const api = {
 
     // Slots e agendamentos
     getSlots: (date) => request(`/slots?date=${date}`),
-    createAppointment: (clientId, serviceId, date, time) =>
-        request('/appointments', { method: 'POST', body: JSON.stringify({ client_id: clientId, service_id: serviceId, date, time }) }),
+    createAppointment: (clientId, serviceIds, date, time) =>
+        request('/appointments', { method: 'POST', body: JSON.stringify({ client_id: clientId, service_ids: serviceIds, date, time }) }),
     getMyAppointments: (clientId) => request(`/appointments/client/${clientId}`),
     cancelAppointment: (id, clientId) =>
         request(`/appointments/${id}/cancel`, { method: 'PUT', body: JSON.stringify({ client_id: clientId }) }),

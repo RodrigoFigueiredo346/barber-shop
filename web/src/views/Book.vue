@@ -56,7 +56,6 @@
     </div>
 
     <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="success" style="color:#4ade80;text-align:center">{{ success }}</p>
 
     <button
       v-if="selectedSlot"
@@ -70,6 +69,17 @@
 
     <div class="spacer"></div>
     <button class="btn btn-secondary" @click="$router.push('/home')">Voltar</button>
+
+    <!-- Dialog de sucesso -->
+    <Teleport to="body">
+      <div v-if="successDialog" class="dialog-overlay" @click="successDialog = ''">
+        <div class="dialog-box" @click.stop>
+          <div style="font-size:2rem;margin-bottom:0.5rem">✅</div>
+          <p style="font-weight:600">{{ successDialog }}</p>
+          <button class="btn btn-primary" @click="successDialog = ''" style="margin-top:1rem">OK</button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -88,7 +98,7 @@ const slots = ref([])
 const loadingSlots = ref(false)
 const booking = ref(false)
 const error = ref('')
-const success = ref('')
+const successDialog = ref('')
 
 const weekdays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -138,7 +148,6 @@ async function selectDay(day) {
   selectedDay.value = day
   selectedSlot.value = ''
   error.value = ''
-  success.value = ''
   loadingSlots.value = true
   const date = `${currentYear.value}-${String(currentMonth.value+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
   try {
@@ -153,13 +162,13 @@ async function selectDay(day) {
 
 async function handleBook() {
   error.value = ''
-  success.value = ''
   booking.value = true
   const date = `${currentYear.value}-${String(currentMonth.value+1).padStart(2,'0')}-${String(selectedDay.value).padStart(2,'0')}`
   try {
-    const service = JSON.parse(localStorage.getItem('barber_service') || 'null')
-    await api.createAppointment(auth.client.id, service?.id || null, date, selectedSlot.value)
-    success.value = `Agendado para ${selectedDay.value}/${String(currentMonth.value+1).padStart(2,'0')} às ${selectedSlot.value}`
+    const services = JSON.parse(localStorage.getItem('barber_services') || '[]')
+    const serviceIds = services.map(s => s.id)
+    await api.createAppointment(auth.client.id, serviceIds, date, selectedSlot.value)
+    successDialog.value = `Agendado para ${selectedDay.value}/${String(currentMonth.value+1).padStart(2,'0')} às ${selectedSlot.value}`
     selectedSlot.value = ''
     await selectDay(selectedDay.value)
   } catch (e) {
@@ -210,4 +219,6 @@ async function handleBook() {
   font-size: 1rem;
 }
 .nav-btn:hover { border-color: #e94560; }
+.dialog-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:999 }
+.dialog-box { background:#16213e;border-radius:16px;padding:2rem;text-align:center;max-width:320px;width:90% }
 </style>
