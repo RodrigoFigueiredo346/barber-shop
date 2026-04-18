@@ -24,8 +24,8 @@ export const api = {
 
     // Slots e agendamentos
     getSlots: (date) => request(`/slots?date=${date}`),
-    createAppointment: (clientId, date, time) =>
-        request('/appointments', { method: 'POST', body: JSON.stringify({ client_id: clientId, date, time }) }),
+    createAppointment: (clientId, serviceId, date, time) =>
+        request('/appointments', { method: 'POST', body: JSON.stringify({ client_id: clientId, service_id: serviceId, date, time }) }),
     getMyAppointments: (clientId) => request(`/appointments/client/${clientId}`),
     cancelAppointment: (id, clientId) =>
         request(`/appointments/${id}/cancel`, { method: 'PUT', body: JSON.stringify({ client_id: clientId }) }),
@@ -44,6 +44,8 @@ export const api = {
         request('/admin/blocked-slots', { method: 'DELETE', body: JSON.stringify({ date, time }), headers: adminHeaders() }),
     getAdminAppointments: (date) =>
         request(`/admin/appointments?date=${date}`, { headers: adminHeaders() }),
+    getBookedSlots: (date) =>
+        request(`/admin/booked-slots?date=${date}`, { headers: adminHeaders() }),
     adminCancelAppointment: (id) =>
         request(`/admin/appointments/${id}`, { method: 'DELETE', headers: adminHeaders() }),
     getSettings: () => request('/admin/settings', { headers: adminHeaders() }),

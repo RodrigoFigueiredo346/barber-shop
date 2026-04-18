@@ -87,6 +87,7 @@ func main() {
 		r.Get("/schedules", adminHandler.GetSchedules)
 		r.Post("/blocked-slots", adminHandler.BlockSlot)
 		r.Delete("/blocked-slots", adminHandler.UnblockSlot)
+		r.Get("/booked-slots", adminHandler.GetBookedSlots)
 		r.Get("/appointments", adminHandler.GetAppointmentsByDate)
 		r.Delete("/appointments/{id}", adminHandler.CancelAppointment)
 		r.Get("/settings", adminHandler.GetSettings)

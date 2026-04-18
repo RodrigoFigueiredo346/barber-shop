@@ -53,16 +53,29 @@
     <div v-if="tab === 'block'">
       <p class="subtitle">Bloquear/Desbloquear horários</p>
       <input class="input" type="date" v-model="blockDate" @change="loadBlockSlots" />
+
+      <div style="display:flex;gap:1rem;margin-bottom:0.75rem;font-size:0.8rem;color:#aaa" v-if="blockDate">
+        <span>🟢 Agendado</span>
+        <span>🔴 Bloqueado</span>
+        <span>⚪ Livre</span>
+      </div>
+
       <div v-if="blockDate" class="slot-grid">
         <div
           v-for="slot in allDaySlots"
           :key="slot"
           class="slot"
-          :class="{ selected: blockedSet.has(slot) }"
-          @click="toggleBlock(slot)"
+          :class="{
+            'slot-blocked': blockedSet.has(slot),
+            'slot-booked': bookedSet.has(slot),
+          }"
+          @click="!bookedSet.has(slot) && toggleBlock(slot)"
+          :style="bookedSet.has(slot) ? 'cursor: default; opacity: 0.9' : ''"
         >
           {{ slot }}
-          <span style="font-size:0.7rem;display:block">{{ blockedSet.has(slot) ? '🔒' : '✓' }}</span>
+          <span v-if="bookedSet.has(slot)" style="font-size:0.7rem;display:block;color:#4ade80">✅</span>
+          <span v-else-if="blockedSet.has(slot)" style="font-size:0.7rem;display:block">🔒</span>
+          <span v-else style="font-size:0.7rem;display:block;color:#aaa">—</span>
         </div>
       </div>
     </div>
@@ -216,8 +229,10 @@ async function cancelAppt(id) {
 // Block slots
 const blockDate = ref('')
 const blockedSlots = ref([])
+const bookedSlots = ref([])
 const allDaySlots = ref([])
-const blockedSet = computed(() => new Set(blockedSlots.value.map(s => s.time?.slice(0,5))))
+const blockedSet = computed(() => new Set(blockedSlots.value.map(s => { const t = s.time || s; return t.length > 5 ? t.slice(0,5) : t })))
+const bookedSet = computed(() => new Set(bookedSlots.value.map(s => s.length > 5 ? s.slice(0,5) : s)))
 
 async function loadBlockSlots() {
   if (!blockDate.value) return
@@ -238,13 +253,17 @@ async function loadBlockSlots() {
     }
     allDaySlots.value = slots
 
-    // Busca bloqueados via API (usa a rota de slots pra comparar)
+    // Busca disponíveis (exclui bloqueados E agendados)
     const available = await api.getSlots(blockDate.value)
     const availableSet = new Set(available.slots || [])
-    // Bloqueados = todos os slots do dia que NÃO estão disponíveis e NÃO estão agendados
-    // Simplificação: busca os blocked_slots diretamente
-    // Como não temos rota pública pra blocked_slots, vamos inferir
-    const blocked = slots.filter(s => !availableSet.has(s)).map(s => ({ time: s + ':00' }))
+
+    // Busca agendados separadamente
+    const booked = await api.getBookedSlots(blockDate.value)
+    bookedSlots.value = booked || []
+    const bookedNorm = new Set((booked || []).map(s => s.length > 5 ? s.slice(0,5) : s))
+
+    // Bloqueados = não disponíveis E não agendados
+    const blocked = slots.filter(s => !availableSet.has(s) && !bookedNorm.has(s)).map(s => ({ time: s }))
     blockedSlots.value = blocked
   } catch (e) { console.error(e) }
 }
@@ -373,5 +392,13 @@ onMounted(() => {
   background: #e94560;
   color: #fff;
   border-color: #e94560;
+}
+.slot-blocked {
+  background: #5c1a2a !important;
+  border-color: #e94560 !important;
+}
+.slot-booked {
+  background: #1a3a2a !important;
+  border-color: #4ade80 !important;
 }
 </style>

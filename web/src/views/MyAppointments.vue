@@ -8,6 +8,7 @@
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-weight:600">{{ formatDate(a.date) }} às {{ a.time?.slice(0,5) }}</div>
+          <div v-if="a.service_name" style="font-size:0.85rem;color:#4ade80">{{ a.service_name }}</div>
           <div style="font-size:0.875rem;color:#aaa">📅 Agendado</div>
         </div>
         <button

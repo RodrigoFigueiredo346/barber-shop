@@ -157,7 +157,8 @@ async function handleBook() {
   booking.value = true
   const date = `${currentYear.value}-${String(currentMonth.value+1).padStart(2,'0')}-${String(selectedDay.value).padStart(2,'0')}`
   try {
-    await api.createAppointment(auth.client.id, date, selectedSlot.value)
+    const service = JSON.parse(localStorage.getItem('barber_service') || 'null')
+    await api.createAppointment(auth.client.id, service?.id || null, date, selectedSlot.value)
     success.value = `Agendado para ${selectedDay.value}/${String(currentMonth.value+1).padStart(2,'0')} às ${selectedSlot.value}`
     selectedSlot.value = ''
     await selectDay(selectedDay.value)

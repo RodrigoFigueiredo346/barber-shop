@@ -125,6 +125,21 @@ func (h *AdminHandler) GetAppointmentsByDate(w http.ResponseWriter, r *http.Requ
 	jsonResponse(w, http.StatusOK, appointments)
 }
 
+// GetBookedSlots retorna os horários agendados de uma data (pra tela de bloquear).
+func (h *AdminHandler) GetBookedSlots(w http.ResponseWriter, r *http.Request) {
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		jsonError(w, http.StatusBadRequest, "Parâmetro 'date' é obrigatório")
+		return
+	}
+	slots, err := h.appointmentRepo.GetBookedSlotsByDate(r.Context(), date)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "Erro ao buscar horários agendados")
+		return
+	}
+	jsonResponse(w, http.StatusOK, slots)
+}
+
 // CancelAppointment cancela um agendamento (admin).
 func (h *AdminHandler) CancelAppointment(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))

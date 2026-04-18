@@ -10,13 +10,15 @@ type Client struct {
 }
 
 type Appointment struct {
-	ID         int       `json:"id"`
-	ClientID   int       `json:"client_id"`
-	ClientName string    `json:"client_name,omitempty"`
-	Date       string    `json:"date"`
-	Time       string    `json:"time"`
-	Status     string    `json:"status"` // scheduled, cancelled, completed
-	CreatedAt  time.Time `json:"created_at"`
+	ID          int       `json:"id"`
+	ClientID    int       `json:"client_id"`
+	ClientName  string    `json:"client_name,omitempty"`
+	ServiceID   *int      `json:"service_id,omitempty"`
+	ServiceName string    `json:"service_name,omitempty"`
+	Date        string    `json:"date"`
+	Time        string    `json:"time"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type Schedule struct {
